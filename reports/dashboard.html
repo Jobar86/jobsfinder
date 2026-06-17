@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Jorge Barreto — QA Job Tracker</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #22263a;
+    --border: #2d3148;
+    --accent: #6c63ff;
+    --accent2: #00d4aa;
+    --text: #e8eaf6;
+    --muted: #8892a4;
+    --red: #ff5370;
+    --orange: #ffb74d;
+    --green: #69f0ae;
+    --blue: #40c4ff;
+    --yellow: #ffd740;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Inter', system-ui, sans-serif; font-size: 14px; }
+
+  header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; gap: 12px; flex-wrap: wrap; }
+  header h1 { font-size: 16px; font-weight: 700; color: var(--accent); letter-spacing: 0.5px; }
+  .header-right { display: flex; align-items: center; gap: 12px; }
+  #source-badge { font-size: 11px; padding: 3px 8px; border-radius: 4px; }
+  .badge-live { background: rgba(105,240,174,0.15); color: var(--green); border: 1px solid rgba(105,240,174,0.3); }
+  .badge-offline { background: rgba(255,183,77,0.15); color: var(--orange); border: 1px solid rgba(255,183,77,0.3); }
+  #last-updated { color: var(--muted); font-size: 12px; }
+
+  .tabs { display: flex; gap: 2px; background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 24px; }
+  .tab { padding: 12px 20px; cursor: pointer; color: var(--muted); font-size: 13px; font-weight: 500; border-bottom: 2px solid transparent; transition: all 0.15s; }
+  .tab:hover { color: var(--text); }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  .content { padding: 24px; max-width: 1400px; margin: 0 auto; }
+  .page { display: none; }
+  .page.active { display: block; }
+
+  /* STATS */
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px; margin-bottom: 24px; }
+  .stat { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px; text-align: center; }
+  .stat-num { font-size: 28px; font-weight: 700; }
+  .stat-label { font-size: 11px; color: var(--muted); margin-top: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .stat.total .stat-num   { color: var(--accent); }
+  .stat.latam .stat-num   { color: var(--accent2); }
+  .stat.applied .stat-num { color: var(--blue); }
+  .stat.interview .stat-num { color: var(--yellow); }
+  .stat.offer .stat-num   { color: var(--green); }
+  .stat.rejected .stat-num { color: var(--red); }
+  .stat.dead .stat-num    { color: var(--muted); }
+
+  /* FILTERS */
+  .filters { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px; align-items: center; }
+  .filters input { background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 8px 12px; border-radius: 8px; font-size: 13px; width: 240px; outline: none; }
+  .filters input:focus { border-color: var(--accent); }
+  .filters select { background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 8px 12px; border-radius: 8px; font-size: 13px; outline: none; cursor: pointer; }
+  .filters select:focus { border-color: var(--accent); }
+  .count-badge { margin-left: auto; color: var(--muted); font-size: 12px; }
+
+  /* TABLE */
+  .job-table { width: 100%; border-collapse: collapse; }
+  .job-table th { text-align: left; padding: 10px 12px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); border-bottom: 1px solid var(--border); }
+  .job-table td { padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  .job-table tr:hover td { background: var(--surface2); }
+  .job-table tr.status-applied   td { border-left: 3px solid var(--blue); }
+  .job-table tr.status-interview td { border-left: 3px solid var(--yellow); }
+  .job-table tr.status-offer     td { border-left: 3px solid var(--green); }
+  .job-table tr.status-rejected  td { border-left: 3px solid var(--red); }
+  .job-table tr.status-skipped   td { opacity: 0.4; }
+  .job-table tr.status-dead      td { opacity: 0.3; text-decoration: line-through; }
+
+  .company { font-weight: 600; color: var(--text); }
+  .role { color: var(--muted); font-size: 13px; }
+  .portal-badge { background: var(--surface2); border: 1px solid var(--border); border-radius: 4px; padding: 2px 7px; font-size: 11px; color: var(--muted); white-space: nowrap; }
+  .region-badge { border-radius: 4px; padding: 2px 7px; font-size: 11px; white-space: nowrap; }
+  .region-latam { background: rgba(0,212,170,0.12); color: var(--accent2); }
+  .region-world { background: rgba(108,99,255,0.12); color: var(--accent); }
+  .new-badge { background: rgba(255,183,77,0.15); color: var(--orange); border-radius: 4px; padding: 2px 6px; font-size: 10px; font-weight: 700; margin-left: 4px; }
+
+  .apply-link { color: var(--accent); text-decoration: none; font-size: 12px; padding: 4px 10px; border: 1px solid var(--accent); border-radius: 6px; white-space: nowrap; }
+  .apply-link:hover { background: var(--accent); color: white; }
+
+  .status-select { background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 4px 8px; border-radius: 6px; font-size: 12px; cursor: pointer; outline: none; }
+  .status-select.status-interested { border-color: var(--muted); }
+  .status-select.status-applied   { border-color: var(--blue);   color: var(--blue); }
+  .status-select.status-interview { border-color: var(--yellow); color: var(--yellow); }
+  .status-select.status-offer     { border-color: var(--green);  color: var(--green); }
+  .status-select.status-rejected  { border-color: var(--red);    color: var(--red); }
+  .status-select.status-skipped   { border-color: var(--muted);  color: var(--muted); }
+  .status-select.status-dead      { border-color: #444; color: #555; }
+
+  .notes-btn { background: none; border: 1px solid var(--border); color: var(--muted); padding: 4px 8px; border-radius: 6px; cursor: pointer; font-size: 12px; }
+  .notes-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .notes-btn.has-notes { border-color: var(--orange); color: var(--orange); }
+
+  /* KANBAN */
+  .kanban { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; }
+  .kanban-col { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px; min-height: 400px; }
+  .kanban-col h3 { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+  .kanban-col h3 .col-count { background: var(--surface2); border-radius: 10px; padding: 1px 8px; font-size: 11px; }
+  .col-interested h3 { color: var(--muted); }
+  .col-applied    h3 { color: var(--blue); }
+  .col-interview  h3 { color: var(--yellow); }
+  .col-offer      h3 { color: var(--green); }
+  .col-rejected   h3 { color: var(--red); }
+
+  .kanban-card { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin-bottom: 10px; cursor: pointer; transition: border-color 0.15s; }
+  .kanban-card:hover { border-color: var(--accent); }
+  .kanban-card .card-company { font-weight: 600; font-size: 13px; }
+  .kanban-card .card-role { color: var(--muted); font-size: 12px; margin-top: 2px; }
+  .kanban-card .card-region { margin-top: 6px; }
+
+  /* LOADING */
+  .loading { text-align: center; padding: 60px; color: var(--muted); }
+  .spinner { display: inline-block; width: 32px; height: 32px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; margin-bottom: 16px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* TOAST */
+  .toast { position: fixed; bottom: 24px; right: 24px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px 16px; font-size: 13px; z-index: 2000; opacity: 0; transition: opacity 0.3s; pointer-events: none; }
+  .toast.show { opacity: 1; }
+  .toast.toast-ok   { border-color: var(--green); color: var(--green); }
+  .toast.toast-warn { border-color: var(--orange); color: var(--orange); }
+
+  /* MODAL */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 1000; display: none; align-items: center; justify-content: center; }
+  .modal-overlay.open { display: flex; }
+  .modal { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 24px; width: 520px; max-width: 95vw; }
+  .modal h3 { font-size: 16px; margin-bottom: 4px; }
+  .modal .modal-company { color: var(--muted); font-size: 13px; margin-bottom: 16px; }
+  .modal label { font-size: 12px; color: var(--muted); display: block; margin-bottom: 6px; }
+  .modal textarea { width: 100%; background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 10px; border-radius: 8px; font-size: 13px; resize: vertical; min-height: 100px; outline: none; font-family: inherit; }
+  .modal textarea:focus { border-color: var(--accent); }
+  .modal .modal-date { font-size: 12px; color: var(--muted); margin-top: 8px; }
+  .modal-actions { display: flex; gap: 10px; margin-top: 16px; justify-content: flex-end; }
+  .btn { padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 500; cursor: pointer; border: none; }
+  .btn-primary { background: var(--accent); color: white; }
+  .btn-secondary { background: var(--surface2); color: var(--muted); border: 1px solid var(--border); }
+  .btn:hover { opacity: 0.85; }
+
+  @media (max-width: 900px) { .kanban { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 600px) { .kanban { grid-template-columns: 1fr; } .stats { grid-template-columns: repeat(3, 1fr); } }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🎯 Jorge Barreto — QA Job Tracker</h1>
+  <div class="header-right">
+    <span id="source-badge" class="badge-offline">⏳ loading…</span>
+    <span id="last-updated"></span>
+  </div>
+</header>
+
+<div class="tabs">
+  <div class="tab active" data-page="jobs">All Jobs</div>
+  <div class="tab" data-page="kanban">Kanban Board</div>
+</div>
+
+<div class="content">
+  <div class="stats">
+    <div class="stat total">    <div class="stat-num" id="stat-total">—</div>    <div class="stat-label">Total</div></div>
+    <div class="stat latam">    <div class="stat-num" id="stat-latam">—</div>    <div class="stat-label">LATAM</div></div>
+    <div class="stat applied">  <div class="stat-num" id="stat-applied">—</div>  <div class="stat-label">Applied</div></div>
+    <div class="stat interview"><div class="stat-num" id="stat-interview">—</div><div class="stat-label">Interview</div></div>
+    <div class="stat offer">    <div class="stat-num" id="stat-offer">—</div>    <div class="stat-label">Offer</div></div>
+    <div class="stat rejected"> <div class="stat-num" id="stat-rejected">—</div> <div class="stat-label">Rejected</div></div>
+    <div class="stat dead">     <div class="stat-num" id="stat-dead">—</div>     <div class="stat-label">Dead/404</div></div>
+  </div>
+
+  <!-- JOBS -->
+  <div id="page-jobs" class="page active">
+    <div class="filters">
+      <input type="text" id="search" placeholder="Search company or role…" oninput="renderTable()">
+      <select id="filter-region" onchange="renderTable()">
+        <option value="">All regions</option>
+        <option value="latam">🌎 LATAM/Mexico</option>
+        <option value="world">🌍 Worldwide</option>
+      </select>
+      <select id="filter-status" onchange="renderTable()">
+        <option value="">All statuses</option>
+        <option value="interested">Interested</option>
+        <option value="applied">Applied</option>
+        <option value="interview">Interview</option>
+        <option value="offer">Offer</option>
+        <option value="rejected">Rejected</option>
+        <option value="skipped">Skip</option>
+        <option value="dead">Dead/404</option>
+      </select>
+      <select id="filter-portal" onchange="renderTable()">
+        <option value="">All portals</option>
+      </select>
+      <select id="sort-by" onchange="renderTable()">
+        <option value="date-desc">📅 Más reciente primero</option>
+        <option value="date-asc">📅 Más antiguo primero</option>
+        <option value="company">🔤 Empresa A-Z</option>
+        <option value="status">🏷 Estado</option>
+      </select>
+      <span class="count-badge" id="showing-count"></span>
+    </div>
+    <div id="jobs-loading" class="loading"><div class="spinner"></div><br>Loading jobs…</div>
+    <table class="job-table" id="job-table" style="display:none">
+      <thead><tr>
+        <th>Fecha</th><th>Company</th><th>Role</th><th>Region</th><th>Portal</th><th>Status</th><th>Notes</th><th>Apply</th>
+      </tr></thead>
+      <tbody id="job-tbody"></tbody>
+    </table>
+  </div>
+
+  <!-- KANBAN -->
+  <div id="page-kanban" class="page">
+    <div class="kanban">
+      <div class="kanban-col col-interested">
+        <h3>👀 Interested <span class="col-count" id="kcount-interested">0</span></h3>
+        <div id="kcol-interested"></div>
+      </div>
+      <div class="kanban-col col-applied">
+        <h3>📤 Applied <span class="col-count" id="kcount-applied">0</span></h3>
+        <div id="kcol-applied"></div>
+      </div>
+      <div class="kanban-col col-interview">
+        <h3>🎤 Interview <span class="col-count" id="kcount-interview">0</span></h3>
+        <div id="kcol-interview"></div>
+      </div>
+      <div class="kanban-col col-offer">
+        <h3>🎉 Offer <span class="col-count" id="kcount-offer">0</span></h3>
+        <div id="kcol-offer"></div>
+      </div>
+      <div class="kanban-col col-rejected">
+        <h3>❌ Rejected <span class="col-count" id="kcount-rejected">0</span></h3>
+        <div id="kcol-rejected"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- NOTES MODAL -->
+<div class="modal-overlay" id="modal" onclick="closeModalIfOverlay(event)">
+  <div class="modal">
+    <h3 id="modal-role"></h3>
+    <div class="modal-company" id="modal-company"></div>
+    <label>Notes / next steps</label>
+    <textarea id="modal-notes" placeholder="Interview date, recruiter name, follow-up needed…"></textarea>
+    <div class="modal-date" id="modal-date"></div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveNotes()">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ─────────────────────────────────────────────
+// MIGRATION MAP: old hardcoded IDs → URLs
+// Preserves status/notes set before dynamic mode
+// ─────────────────────────────────────────────
+const LEGACY_ID_MAP = {}; // Populated per-user after first scan
+
+// ─────────────────────────────────────────────
+// ID from URL (stable)
+// ─────────────────────────────────────────────
+function urlToId(url) {
+  return url.replace(/https?:\/\//, '').replace(/[^a-z0-9]/gi, '-').replace(/-+/g, '-').replace(/^-|-$/g, '').toLowerCase().substring(0, 90);
+}
+
+// ─────────────────────────────────────────────
+// localStorage state
+// ─────────────────────────────────────────────
+const STORAGE_KEY = 'jb_qa_tracker_v2';
+const LEGACY_KEY  = 'jb_qa_tracker_v1';
+
+function loadState() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; } catch { return {}; }
+}
+function saveState(s) { localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); }
+
+// One-time migration: v1 (old IDs) → v2 (URL-based IDs)
+function migrate() {
+  if (localStorage.getItem('jb_migrated_v2')) return 0;
+  let old;
+  try { old = JSON.parse(localStorage.getItem(LEGACY_KEY)) || {}; } catch { old = {}; }
+  const entries = Object.entries(old).filter(([,v]) => v && (v.status || v.notes));
+  if (entries.length === 0) { localStorage.setItem('jb_migrated_v2', '1'); return 0; }
+
+  const v2 = loadState();
+  let migrated = 0;
+  for (const [oldId, data] of entries) {
+    const url = LEGACY_ID_MAP[oldId];
+    if (url) {
+      const newId = urlToId(url);
+      if (!v2[newId]) { v2[newId] = data; migrated++; }
+    }
+  }
+  saveState(v2);
+  localStorage.setItem('jb_migrated_v2', '1');
+  return migrated;
+}
+
+let state = {};
+
+function getStatus(id) { return (state[id] && state[id].status) || 'interested'; }
+function getNotes(id)  { return (state[id] && state[id].notes)  || ''; }
+function getNoteDate(id){ return (state[id] && state[id].noteDate) || ''; }
+
+function setStatus(id, status) {
+  if (!state[id]) state[id] = {};
+  state[id].status = status;
+  saveState(state);
+  updateStats();
+  if (document.getElementById('page-kanban').classList.contains('active')) renderKanban();
+}
+
+// ─────────────────────────────────────────────
+// Job data
+// ─────────────────────────────────────────────
+let JOBS = [];
+
+async function loadJobs() {
+  // Try server first
+  try {
+    const res = await fetch('/api/jobs', { signal: AbortSignal.timeout(3000) });
+    if (res.ok) {
+      const data = await res.json();
+      JOBS = data.jobs || [];
+      const badge = document.getElementById('source-badge');
+      badge.textContent = `🟢 Live — ${data.meta.file}`;
+      badge.className = 'badge-live';
+      document.getElementById('last-updated').textContent = `${JOBS.length} jobs`;
+      return;
+    }
+  } catch (_) {}
+
+  // Fallback: embedded static data
+  JOBS = STATIC_JOBS;
+  const badge = document.getElementById('source-badge');
+  badge.textContent = '🟡 Offline (static)';
+  badge.className = 'badge-offline';
+  document.getElementById('last-updated').textContent = `${JOBS.length} jobs · start server for live data`;
+}
+
+// Load liveness results and auto-mark dead jobs (only if user hasn't manually set a status)
+async function applyDeadJobs() {
+  try {
+    const res = await fetch('/api/dead-jobs', { signal: AbortSignal.timeout(3000) });
+    if (!res.ok) return;
+    const data = await res.json();
+    if (!data.ids || data.ids.length === 0) return;
+    let autoMarked = 0;
+    for (const id of data.ids) {
+      // Only auto-mark if status is still default (interested = never manually set)
+      const current = state[id]?.status;
+      if (!current || current === 'interested') {
+        if (!state[id]) state[id] = {};
+        state[id].status = 'dead';
+        state[id].autoMarked = true;
+        autoMarked++;
+      }
+    }
+    if (autoMarked > 0) {
+      saveState(state);
+      showToast(`💀 Auto-marcados ${autoMarked} jobs como Dead (liveness check)`, 'warn');
+    }
+  } catch (_) {}
+}
+
+// ─────────────────────────────────────────────
+// Stats
+// ─────────────────────────────────────────────
+function updateStats() {
+  const c = { total: JOBS.length, latam: 0, applied: 0, interview: 0, offer: 0, rejected: 0, dead: 0 };
+  JOBS.forEach(j => {
+    if (j.region === 'latam') c.latam++;
+    const s = getStatus(j.id);
+    if (c[s] !== undefined) c[s]++;
+  });
+  Object.keys(c).forEach(k => {
+    const el = document.getElementById('stat-' + k);
+    if (el) el.textContent = c[k];
+  });
+}
+
+// ─────────────────────────────────────────────
+// Portal filter populate
+// ─────────────────────────────────────────────
+function populatePortals() {
+  const portals = [...new Set(JOBS.map(j => j.portal))].sort();
+  const sel = document.getElementById('filter-portal');
+  // clear existing options except first
+  while (sel.options.length > 1) sel.remove(1);
+  portals.forEach(p => { const o = document.createElement('option'); o.value = p; o.textContent = p; sel.appendChild(o); });
+}
+
+// ─────────────────────────────────────────────
+// Table render
+// ─────────────────────────────────────────────
+const STATUS_ORDER = { offer:0, interview:1, applied:2, interested:3, rejected:4, skipped:5, dead:6 };
+
+function formatDate(d) {
+  if (!d) return '—';
+  // d = 'YYYY-MM-DD'
+  const [y, m, day] = d.split('-');
+  const months = ['','Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  return `${parseInt(day)} ${months[parseInt(m)]}`;
+}
+
+function renderTable() {
+  const search = document.getElementById('search').value.toLowerCase();
+  const region = document.getElementById('filter-region').value;
+  const status = document.getElementById('filter-status').value;
+  const portal = document.getElementById('filter-portal').value;
+  const sortBy = document.getElementById('sort-by').value;
+
+  let filtered = JOBS.filter(j => {
+    if (search && !j.company.toLowerCase().includes(search) && !j.role.toLowerCase().includes(search)) return false;
+    if (region && j.region !== region) return false;
+    if (status && getStatus(j.id) !== status) return false;
+    if (portal && j.portal !== portal) return false;
+    return true;
+  });
+
+  // Sort
+  filtered.sort((a, b) => {
+    if (sortBy === 'date-desc') {
+      const da = a.firstSeen || '0000-00-00', db = b.firstSeen || '0000-00-00';
+      return db.localeCompare(da);
+    }
+    if (sortBy === 'date-asc') {
+      const da = a.firstSeen || '9999-99-99', db = b.firstSeen || '9999-99-99';
+      return da.localeCompare(db);
+    }
+    if (sortBy === 'company') return a.company.localeCompare(b.company);
+    if (sortBy === 'status') return (STATUS_ORDER[getStatus(a.id)] ?? 9) - (STATUS_ORDER[getStatus(b.id)] ?? 9);
+    return 0;
+  });
+
+  document.getElementById('showing-count').textContent = `Showing ${filtered.length} of ${JOBS.length}`;
+  const tbody = document.getElementById('job-tbody');
+  tbody.innerHTML = '';
+
+  filtered.forEach(j => {
+    const s = getStatus(j.id);
+    const n = getNotes(j.id);
+    const tr = document.createElement('tr');
+    tr.className = `status-${s}`;
+    tr.innerHTML = `
+      <td style="white-space:nowrap;color:var(--muted);font-size:12px">${formatDate(j.firstSeen)}</td>
+      <td><span class="company">${esc(j.company)}</span>${j.isNew ? '<span class="new-badge">NEW</span>' : ''}</td>
+      <td><span class="role">${esc(j.role)}</span></td>
+      <td><span class="region-badge region-${j.region}">${j.region === 'latam' ? '🌎 LATAM' : '🌍 Remote'}</span></td>
+      <td><span class="portal-badge">${esc(j.portal)}</span></td>
+      <td>
+        <select class="status-select status-${s}" onchange="handleStatusChange(this,'${j.id}')">
+          <option value="interested" ${s==='interested'?'selected':''}>👀 Interested</option>
+          <option value="applied"    ${s==='applied'   ?'selected':''}>📤 Applied</option>
+          <option value="interview"  ${s==='interview' ?'selected':''}>🎤 Interview</option>
+          <option value="offer"      ${s==='offer'     ?'selected':''}>🎉 Offer</option>
+          <option value="rejected"   ${s==='rejected'  ?'selected':''}>❌ Rejected</option>
+          <option value="skipped"    ${s==='skipped'   ?'selected':''}>🚫 Skip</option>
+          <option value="dead"       ${s==='dead'      ?'selected':''}>💀 Dead/404</option>
+        </select>
+      </td>
+      <td><button class="notes-btn ${n ? 'has-notes' : ''}" onclick="openModal('${j.id}')"> ${n ? '📝 Edit' : '+ Note'}</button></td>
+      <td><a class="apply-link" href="${j.url}" target="_blank" rel="noopener">Apply →</a></td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function handleStatusChange(sel, id) {
+  const s = sel.value;
+  sel.className = `status-select status-${s}`;
+  sel.closest('tr').className = `status-${s}`;
+  setStatus(id, s);
+  showToast(`Saved: ${s}`, 'ok');
+}
+
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+// ─────────────────────────────────────────────
+// Kanban
+// ─────────────────────────────────────────────
+function renderKanban() {
+  const buckets = { interested:[], applied:[], interview:[], offer:[], rejected:[] };
+  JOBS.forEach(j => { const s = getStatus(j.id); if (buckets[s]) buckets[s].push(j); });
+  Object.keys(buckets).forEach(col => {
+    document.getElementById('kcount-' + col).textContent = buckets[col].length;
+    const el = document.getElementById('kcol-' + col);
+    el.innerHTML = '';
+    if (!buckets[col].length) { el.innerHTML = '<div style="color:var(--muted);font-size:12px;text-align:center;padding:20px 0">Empty</div>'; return; }
+    buckets[col].forEach(j => {
+      const card = document.createElement('div');
+      card.className = 'kanban-card';
+      card.innerHTML = `<div class="card-company">${esc(j.company)}${j.isNew?' <span class="new-badge">NEW</span>':''}</div><div class="card-role">${esc(j.role)}</div><div class="card-region"><span class="region-badge region-${j.region}">${j.region==='latam'?'🌎 LATAM':'🌍 Remote'}</span> <span class="portal-badge">${esc(j.portal)}</span></div>`;
+      card.onclick = () => window.open(j.url, '_blank');
+      el.appendChild(card);
+    });
+  });
+}
+
+// ─────────────────────────────────────────────
+// Modal
+// ─────────────────────────────────────────────
+let modalJobId = null;
+function openModal(id) {
+  modalJobId = id;
+  const j = JOBS.find(x => x.id === id);
+  document.getElementById('modal-role').textContent = j.role;
+  document.getElementById('modal-company').textContent = j.company;
+  document.getElementById('modal-notes').value = getNotes(id);
+  const d = getNoteDate(id);
+  document.getElementById('modal-date').textContent = d ? 'Last updated: ' + d : '';
+  document.getElementById('modal').classList.add('open');
+  setTimeout(() => document.getElementById('modal-notes').focus(), 50);
+}
+function closeModal() { document.getElementById('modal').classList.remove('open'); modalJobId = null; }
+function closeModalIfOverlay(e) { if (e.target === document.getElementById('modal')) closeModal(); }
+function saveNotes() {
+  if (!modalJobId) return;
+  if (!state[modalJobId]) state[modalJobId] = {};
+  state[modalJobId].notes = document.getElementById('modal-notes').value;
+  state[modalJobId].noteDate = new Date().toISOString().split('T')[0];
+  saveState(state);
+  closeModal();
+  renderTable();
+  showToast('Note saved', 'ok');
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+// ─────────────────────────────────────────────
+// Toast
+// ─────────────────────────────────────────────
+let toastTimer;
+function showToast(msg, type = 'ok') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = `toast toast-${type} show`;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2000);
+}
+
+// ─────────────────────────────────────────────
+// Tabs
+// ─────────────────────────────────────────────
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    const page = tab.dataset.page;
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('page-' + page).classList.add('active');
+    if (page === 'kanban') renderKanban();
+  });
+});
+
+// ─────────────────────────────────────────────
+// INIT
+// ─────────────────────────────────────────────
+(async () => {
+  // 1. Migrate old state
+  const migrated = migrate();
+  state = loadState();
+  if (migrated > 0) showToast(`✅ Migrated ${migrated} saved statuses`, 'ok');
+
+  // 2. Load jobs (server or static fallback)
+  await loadJobs();
+
+  // 3. Apply liveness results (auto-mark dead) — only from server
+  await applyDeadJobs();
+
+  // 4. Render
+  populatePortals();
+  updateStats();
+  document.getElementById('jobs-loading').style.display = 'none';
+  document.getElementById('job-table').style.display = 'table';
+  renderTable();
+})();
+
+// ─────────────────────────────────────────────
+// STATIC FALLBACK — populated after running /career-ops scan
+// Start the server (node dashboard-server.mjs) for live data
+// ─────────────────────────────────────────────
+const STATIC_JOBS = [];
+</script>
+</body>
+</html>
